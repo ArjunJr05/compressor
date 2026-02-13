@@ -1,0 +1,102 @@
+{
+    "name": "video-compressor-electron",
+    "version": "1.0.0",
+    "description": "Fast video compressor using native FFmpeg",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "build": "electron-builder --mac",
+        "build:win": "electron-builder --win",
+        "build:linux": "electron-builder --linux",
+        "build:all": "electron-builder -mwl"
+    },
+    "keywords": [
+        "video",
+        "compressor",
+        "ffmpeg",
+        "electron"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+        "fluent-ffmpeg": "^2.1.3"
+    },
+    "devDependencies": {
+        "electron": "^33.2.1",
+        "electron-builder": "^26.7.0"
+    },
+    "build": {
+        "appId": "com.videocompressor.app",
+        "productName": "Video Compressor",
+        "compression": "maximum",
+        "asar": true,
+        "files": [
+            "**/*",
+            "!node_modules/**/*",
+            "!dist/**/*",
+            "!backup/**/*",
+            "!.git/**/*",
+            "!**/*.md",
+            "!.vscode/**/*",
+            "!.github/**/*",
+            "node_modules/fluent-ffmpeg/lib/**/*",
+            "node_modules/fluent-ffmpeg/package.json",
+            "node_modules/async/**/*"
+        ],
+        "mac": {
+            "category": "public.app-category.video",
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "arm64"
+                    ]
+                }
+            ],
+            "identity": null,
+            "minimumSystemVersion": "10.15"
+        },
+        "dmg": {
+            "format": "ULFO"
+        },
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "artifactName": "${productName}-Setup-${version}.${ext}"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true
+        },
+        "linux": {
+            "target": [
+                {
+                    "target": "AppImage",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "category": "AudioVideo"
+        },
+        "files": [
+            "**/*",
+            "!**/README.md",
+            "!**/LICENSE",
+            "!**/*.md",
+            "!**/test/**",
+            "!**/tests/**",
+            "!**/.github/**",
+            "!.git",
+            "!.vscode",
+            "!dist",
+            "!node_modules/.bin"
+        ]
+    }
+}

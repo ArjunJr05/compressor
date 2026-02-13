@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Compressor</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background: #f5f5f5;
+    }
+
+    .upload-area {
+      border: 2px dashed #bbb;
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      margin: 1.5rem 0;
+      cursor: pointer;
+      background-color: #fafafa;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .upload-area:hover {
+      border-color: #555;
+      background-color: #f0f0f0;
+    }
+
+    .upload-area.active {
+      border-color: #555;
+      background-color: #eaeaea;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    button {
+      background: #1976d2;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    button:hover {
+      background: #1565c0;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .progress-container {
+      margin: 1.5rem 0;
+      display: none;
+    }
+
+    .progress-container.active {
+      display: block;
+    }
+
+    .progress-bar-wrapper {
+      position: relative;
+      width: 100%;
+      height: 40px;
+      background: #e0e0e0;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #1976d2, #42a5f5);
+      transition: width 0.3s ease;
+      border-radius: 20px;
+      position: relative;
+    }
+
+    .progress-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #333;
+      z-index: 10;
+    }
+
+    /* Processing overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.1rem;
+      z-index: 1000;
+      visibility: hidden;
+    }
+
+    .overlay.active {
+      visibility: visible;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 1rem;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* File card styles */
+    .file-card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Highlight the currently selected file card */
+    .file-card.active-card {
+      border-color: #1976d2;
+      background: #e3f2fd;
+    }
+
+    .file-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: #333;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-status {
+      font-size: 0.85rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+    }
+
+    .status-queued {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .status-processing {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+
+    .status-complete {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .status-error {
+      background: #ffebee;
+      color: #d32f2f;
+    }
+
+    .file-progress {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .file-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #1976d2, #42a5f5);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+
+    .file-info {
+      background: #f5f5f5;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .file-info.active {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Video Compressor</h1>
+
+    <div class="upload-area" id="uploadArea">
+      <!-- Hidden file input for selecting video files only -->
+      <!-- Include WebM support -->
+      <input type="file" id="fileInput" accept="video/*,.mp4,.mov,.avi,.mkv,.webm" multiple />
+      <p><strong>Click to select</strong> a video file</p>
+      <p style="font-size: 0.85rem; color: #999; margin-top: 0.5rem;">Supported formats: MP4, MOV, AVI, MKV, WEBM</p>
+    </div>
+    <!-- Preview is not required for video‑only workflow; kept for potential future use -->
+    <img id="preview" class="preview" style="display:none;">
+    <input type="hidden" id="qualityInput" />
+    <input type="hidden" id="maxSizeInput" />
+    <input type="hidden" id="widthInput" />
+    <input type="hidden" id="heightInput" />
+
+    <!-- Quality Selector -->
+    <div style="margin: 1rem 0;">
+      <label for="qualitySelect" style="font-weight: 600; margin-right: 0.5rem;">Quality:</label>
+      <select id="qualitySelect" style="padding: 0.5rem; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem;">
+        <option value="720" selected>Normal (720p) - Smaller file</option>
+        <option value="1080">HD (1080p) - Better quality</option>
+      </select>
+    </div>
+
+    <button id="compressBtn" disabled>Compress Video</button>
+
+    <!-- File List Container -->
+    <div id="fileListContainer" style="display:none; margin: 1rem 0;">
+      <h3 style="margin-bottom: 0.5rem;">Selected Files:</h3>
+      <div id="fileList"></div>
+    </div>
+
+    <!-- Minimal overlay for processing -->
+    <div class="overlay" id="overlay">
+      <div class="spinner"></div>
+      <span id="overlayMessage">Processing… please wait</span>
+    </div>
+    <!-- Download All button appears after compression -->
+    <!-- Summary information displayed after compression -->
+    <div id="summaryInfo" style="display:none; margin-top:1rem; font-size:0.9rem; color:#333;">
+      <p id="summaryOriginal">Original size: </p>
+      <p id="summaryCompressed">Compressed size: </p>
+      <div id="summaryPerFile" style="margin-top:0.5rem;"></div>
+      <p id="summaryTime">Time taken: </p>
+    </div>
+    <button id="downloadBtn" style="display:none; margin-top:1rem;">Download All</button>
+  </div>
+
+  <script type="module">
+    import { Compressor } from './compressor.js';
+    
+    const { ipcRenderer } = require('electron');
+    
+    // Listen for FFmpeg download events
+    ipcRenderer.on('ffmpeg-download-start', () => {
+      document.getElementById('overlayMessage').textContent = 'Installing packages, please wait...';
+      document.getElementById('overlay').classList.add('active');
+    });
+    
+    ipcRenderer.on('ffmpeg-download-complete', () => {
+      document.getElementById('overlay').classList.remove('active');
+    });
+
+    // UI elements
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const compressBtn = document.getElementById('compressBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const fileListContainer = document.getElementById('fileListContainer');
+    const fileList = document.getElementById('fileList');
+
+    // Track selected files and their states
+    let selectedFiles = [];
+    let fileStates = new Map(); // fileId -> { file, status, outputPath, progress, format }
+    // Per‑file compression settings (width, height, overrides, mode)
+    const fileSettings = new Map(); // fileId -> { resizeWidth, resizeHeight, heightOverride, videoBitrateOverride, audioBitrateOverride, mode }
+    let activeFileId = null; // currently selected file for editing settings
+
+    // Track video dimensions
+    const fileDimensions = new Map(); // fileId -> { width, height, aspectRatio }
+    let videoWidth = null;
+    let videoHeight = null;
+    let videoAspectRatio = null;
+
+    // Create compressor instance
+    const compressor = new Compressor();
+
+    // Quality selector
+    const qualitySelect = document.getElementById('qualitySelect');
+
+    // Upload area interactions
+    uploadArea.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('active');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('active');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('active');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect();
+      }
+    });
+
+    // File selection
+    fileInput.addEventListener('change', handleFileSelect);
+
+    function handleFileSelect() {
+      const files = Array.from(fileInput.files);
+      if (files.length === 0) return;
+
+      selectedFiles = files;
+      fileStates.clear();
+      fileDimensions.clear();
+      fileList.innerHTML = '';
+
+      // Reset UI controls for a fresh compression session
+      if (qualitySelect) qualitySelect.value = '720';
+      // Hide summary information if previously shown
+      const summaryDiv = document.getElementById('summaryInfo');
+      if (summaryDiv) summaryDiv.style.display = 'none';
+
+      // Create file cards for each selected file
+      files.forEach((file, index) => {
+        const fileId = `file_${Date.now()}_${index}`;
+        const ext = file.name.split('.').pop().toLowerCase();
+        const supported = ['mp4', 'avi', 'mov', 'mkv', 'webm'];
+        if (!supported.includes(ext)) {
+          alert(`Unsupported file format: ${file.name}. Only MP4, AVI, MOV, MKV, and WEBM are supported.`);
+          return;
+        }
+        const format = ext;
+
+        fileStates.set(fileId, {
+          file,
+          format,
+          status: 'queued',
+          progress: 0,
+          outputPath: null
+        });
+
+        // Initialize default settings for this file (empty for now, reserved for future use)
+        fileSettings.set(fileId, {});
+
+        const card = createFileCard(fileId, file.name);
+        // Click a file card to make it active and load its settings
+        card.addEventListener('click', () => {
+          setActiveFile(fileId);
+        });
+        fileList.appendChild(card);
+      });
+
+      fileListContainer.style.display = 'block';
+      compressBtn.disabled = false;
+      compressBtn.removeAttribute('disabled');
+
+      // Auto‑select the first file to populate UI with its settings
+      if (files.length > 0) {
+        const firstId = Array.from(fileStates.keys())[0];
+        setActiveFile(firstId);
+      }
+
+      console.log(`${files.length} file(s) selected`);
+
+      // Load dimensions for the first file to initialize UI
+      if (files.length > 0) {
+        const firstId = Array.from(fileStates.keys())[0];
+        const firstState = fileStates.get(firstId);
+        if (firstState) {
+          loadVideoDimensions(firstId, firstState.file, true);
+        }
+      }
+    }
+
+    function loadVideoDimensions(fileId, file, shouldPrefill = false) {
+      const existing = fileDimensions.get(fileId);
+      if (existing) {
+        updateAspectRatioInfo(existing);
+        return;
+      }
+
+      loadDimensionsViaFfprobe(fileId, file, shouldPrefill);
+    }
+
+    async function getFilePath(file) {
+      let filePath = file.path;
+      if (!filePath) {
+        try {
+          const { webUtils } = require('electron');
+          filePath = webUtils.getPathForFile(file);
+        } catch (e) {
+          console.warn('Failed to resolve file path for metadata:', e);
+        }
+      }
+      return filePath;
+    }
+
+    async function loadDimensionsViaFfprobe(fileId, file, shouldPrefill) {
+      try {
+        const filePath = await getFilePath(file);
+        if (filePath) {
+          const meta = await window.electronAPI.getVideoMetadata(filePath);
+          if (meta && meta.width && meta.height) {
+            const width = meta.width;
+            const height = meta.height;
+            const aspectRatio = meta.aspectRatio || (width / height);
+
+            fileDimensions.set(fileId, { width, height, aspectRatio });
+            videoWidth = width;
+            videoHeight = height;
+            videoAspectRatio = aspectRatio;
+
+            updateAspectRatioInfo({ width, height, aspectRatio });
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('FFprobe metadata failed, falling back to video element:', e);
+      }
+
+      loadDimensionsViaVideoElement(fileId, file, shouldPrefill);
+    }
+
+    function loadDimensionsViaVideoElement(fileId, file, shouldPrefill) {
+      const existing = fileDimensions.get(fileId);
+      if (existing) {
+        updateAspectRatioInfo(existing);
+        return;
+      }
+
+      const videoElement = document.createElement('video');
+      videoElement.preload = 'metadata';
+
+      videoElement.onloadedmetadata = function () {
+        const width = this.videoWidth;
+        const height = this.videoHeight;
+
+        if (!width || !height) {
+          URL.revokeObjectURL(this.src);
+          return;
+        }
+
+        const aspectRatio = width / height;
+
+        fileDimensions.set(fileId, { width, height, aspectRatio });
+        videoWidth = width;
+        videoHeight = height;
+        videoAspectRatio = aspectRatio;
+
+        console.log(`✅ Video dimensions loaded: ${width}x${height}, aspect ratio: ${aspectRatio.toFixed(2)}`);
+        updateAspectRatioInfo({ width, height, aspectRatio });
+
+        URL.revokeObjectURL(this.src);
+      };
+
+      videoElement.onerror = function () {
+        URL.revokeObjectURL(this.src);
+      };
+
+      videoElement.src = URL.createObjectURL(file);
+    }
+
+    function updateAspectRatioInfo(dimensions) {
+      const ratioText = (dimensions.aspectRatio).toFixed(2);
+      console.log(`Video: ${dimensions.width}x${dimensions.height} (${ratioText}:1 aspect ratio)`);
+    }
+
+    function createFileCard(fileId, fileName) {
+      const card = document.createElement('div');
+      card.className = 'file-card';
+      card.id = `card_${fileId}`;
+      card.innerHTML = `
+        <div class="file-card-header">
+          <div class="file-name" title="${fileName}">${fileName}</div>
+          <div class="file-status status-queued" id="status_${fileId}">Queued</div>
+        </div>
+        <div class="file-progress">
+          <div class="file-progress-bar" id="progress_${fileId}"></div>
+        </div>
+      `;
+      return card;
+    }
+
+    function updateFileStatus(fileId, status, progress = null) {
+      const statusEl = document.getElementById(`status_${fileId}`);
+      const progressEl = document.getElementById(`progress_${fileId}`);
+
+      if (statusEl) {
+        statusEl.className = `file-status status-${status}`;
+        statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+      }
+
+      if (progressEl && progress !== null) {
+        progressEl.style.width = `${progress}%`;
+      }
+
+      const state = fileStates.get(fileId);
+      if (state) {
+        state.status = status;
+        if (progress !== null) state.progress = progress;
+      }
+    }
+
+    // ---------- Per‑file settings management ----------
+    // Load settings of the given fileId into the UI controls
+    function loadSettingsIntoUI(fileId) {
+      const dims = fileDimensions.get(fileId);
+      if (dims) {
+        videoAspectRatio = dims.aspectRatio;
+        videoWidth = dims.width;
+        videoHeight = dims.height;
+        updateAspectRatioInfo(dims);
+      }
+    }
+
+    // Save current UI values into the settings map for the active file
+    function saveSettingsFromUI() {
+      // No settings to save in simplified UI
+    }
+
+    // Highlight the selected file card and load its settings
+    function setActiveFile(fileId) {
+      activeFileId = fileId;
+      // Update card styling
+      document.querySelectorAll('.file-card').forEach(card => {
+        card.classList.toggle('active-card', card.id === `card_${fileId}`);
+      });
+      loadSettingsIntoUI(fileId);
+
+      const state = fileStates.get(fileId);
+      if (state) {
+        loadVideoDimensions(fileId, state.file, true);
+      }
+    }
+
+    // No UI control listeners needed in simplified mode
+
+    // Compress button - now handles multiple files in parallel
+    compressBtn.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+
+      compressBtn.disabled = true;
+      document.getElementById('overlay').classList.add('active');
+
+      const qualitySelect = document.getElementById('qualitySelect');
+      const selectedQuality = qualitySelect.value;
+
+      // Start compression immediately
+      const compressionStartTime = Date.now();
+
+      try {
+        const compressionPromises = Array.from(fileStates.entries()).map(([fileId, state]) => {
+          return compressFile(fileId, state, selectedQuality);
+        });
+
+        const results = await Promise.all(compressionPromises);
+
+        const actualTime = (Date.now() - compressionStartTime) / 1000;
+        const displayTime = Math.max(0, actualTime - 1).toFixed(1);
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.length - successCount;
+
+        // Calculate total original and compressed sizes + per-file details
+        let totalOriginal = 0;
+        let totalCompressed = 0;
+        const perFileLines = [];
+
+        for (const [fileId, state] of fileStates.entries()) {
+          totalOriginal += state.file.size;
+
+          const result = results.find(r => r.fileId === fileId);
+          const originalSize = state.file.size;
+          const compressedSize = result && result.success && result.result
+            ? (result.result.compressedSize || 0)
+            : 0;
+
+          if (result && result.success) {
+            totalCompressed += compressedSize;
+          }
+
+          perFileLines.push({
+            name: state.file.name,
+            originalSize,
+            compressedSize,
+            success: !!(result && result.success)
+          });
+        }
+
+        // Update summary UI
+        const summaryDiv = document.getElementById('summaryInfo');
+        if (summaryDiv) {
+          document.getElementById('summaryOriginal').textContent = `Original size: ${compressor.formatSize(totalOriginal)}`;
+          document.getElementById('summaryCompressed').textContent = `Compressed size: ${compressor.formatSize(totalCompressed)}`;
+          document.getElementById('summaryTime').textContent = `Time taken: ${displayTime} seconds`;
+
+          const summaryPerFile = document.getElementById('summaryPerFile');
+          if (summaryPerFile) {
+            if (perFileLines.length > 1) {
+              summaryPerFile.innerHTML = perFileLines.map(item => {
+                const originalText = compressor.formatSize(item.originalSize);
+                const compressedText = item.success ? compressor.formatSize(item.compressedSize) : 'Failed';
+                return `<div>• ${item.name} — Original: ${originalText}, Compressed: ${compressedText}</div>`;
+              }).join('');
+            } else if (perFileLines.length === 1) {
+              const item = perFileLines[0];
+              const originalText = compressor.formatSize(item.originalSize);
+              const compressedText = item.success ? compressor.formatSize(item.compressedSize) : 'Failed';
+              summaryPerFile.innerHTML = `<div>• ${item.name} — Original: ${originalText}, Compressed: ${compressedText}</div>`;
+            } else {
+              summaryPerFile.innerHTML = '';
+            }
+          }
+
+          summaryDiv.style.display = 'block';
+        }
+
+        // Collect error messages
+        let errorMessage = `Compression complete!\n${successCount} succeeded, ${failCount} failed\nTotal time: ${displayTime} seconds`;
+
+        if (failCount > 0) {
+          const errors = results.filter(r => !r.success).map(r => r.error?.message || r.error || 'Unknown error');
+          errorMessage += '\n\nErrors:\n' + errors.join('\n');
+        }
+
+        alert(errorMessage);
+
+        // Show download all button if any succeeded
+        if (successCount > 0) {
+          downloadBtn.textContent = "Download All";
+          downloadBtn.style.display = 'inline-block';
+          downloadBtn.onclick = async () => {
+            // Save all completed files directly to Downloads and open the folder
+            const pathsToSave = [];
+            const savedNames = [];
+
+            for (const [fileId, state] of fileStates.entries()) {
+              if (state.outputPath && state.status === 'complete') {
+                pathsToSave.push(state.outputPath);
+                savedNames.push(state.file.name);
+              }
+            }
+
+            if (pathsToSave.length === 0) {
+              alert('No compressed files were saved.');
+              return;
+            }
+
+            try {
+              const savedPaths = await window.electronAPI.saveVideosToDownloads(pathsToSave);
+              if (savedPaths && savedPaths.length > 0) {
+                alert(`Saved ${savedPaths.length} compressed file(s) to Downloads.`);
+              } else {
+                alert('No compressed files were saved.');
+              }
+            } catch (e) {
+              console.error('Failed to save files to Downloads:', e);
+              alert('Failed to save files to Downloads.');
+            }
+          };
+        }
+
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Compression error: ' + error.message);
+      } finally {
+        document.getElementById('overlay').classList.remove('active');
+        compressBtn.disabled = false;
+      }
+    });
+ 
+    async function compressFile(fileId, state, quality) {
+      try {
+        // Set message to processing for actual compression
+        document.getElementById('overlayMessage').textContent = 'Processing… please wait';
+        updateFileStatus(fileId, 'processing', 0);
+
+        // Get video dimensions for smart compression
+        const dims = fileDimensions.get(fileId);
+        const videoHeight = dims ? dims.height : 0;
+        
+        // Smart quality logic:
+        // If video > 1080p → compress to selected quality
+        // If video between 720p and 1080p → compress to 720p max
+        // If video < 720p → keep original resolution
+        let targetQuality = quality;
+        
+        if (videoHeight > 0) {
+          if (videoHeight < 720) {
+            // Keep original resolution for videos smaller than 720p
+            targetQuality = 'original';
+            console.log(`Video is ${videoHeight}p - keeping original resolution`);
+          } else if (videoHeight >= 720 && videoHeight < 1080) {
+            // Force 720p for videos between 720p and 1080p
+            targetQuality = '720';
+            console.log(`Video is ${videoHeight}p - compressing to 720p`);
+          } else if (videoHeight >= 1080 && quality === '720') {
+            // User selected 720p and video is >= 1080p
+            targetQuality = '720';
+            console.log(`Video is ${videoHeight}p - compressing to 720p as selected`);
+          } else if (videoHeight >= 1080 && quality === '1080') {
+            // User selected 1080p and video is >= 1080p
+            targetQuality = '1080';
+            console.log(`Video is ${videoHeight}p - compressing to 1080p as selected`);
+          }
+        }
+
+        const options = {
+          format: state.format,
+          quality: targetQuality
+        };
+
+        const onProgress = (progressData) => {
+          if (progressData && typeof progressData.progress === 'number') {
+            const percent = Math.min(100, Math.max(0, progressData.progress));
+            updateFileStatus(fileId, 'processing', percent);
+          }
+        };
+
+        const result = await compressor.compress(state.file, options, onProgress, fileId);
+
+        state.outputPath = result.filePath;
+        updateFileStatus(fileId, 'complete', 100);
+
+        return { success: true, fileId, result };
+      } catch (error) {
+        console.error(`Error compressing ${state.file.name}:`, error);
+        updateFileStatus(fileId, 'error', 0);
+        return { success: false, fileId, error };
+      }
+    }
+  </script>
+</body>
+
+</html>
